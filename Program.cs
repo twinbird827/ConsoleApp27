@@ -38,24 +38,9 @@ namespace ConsoleApp27
 
         private static async Task Execute(int option, string[] args)
         {
-            var executes = args.Select(async arg =>
+            var executes = args.AsParallel().Select(async arg =>
             {
                 return await Execute(option, arg);
-
-                // 処理をﾃﾞﾘｹﾞｰﾄ化
-                //Func<bool> action = () => Execute(option, arg);
-
-                //// 非同期実行
-                //var iar = action.BeginInvoke(_ => { }, null);
-
-                //// 処理が終わるまで待機する
-                //while (!iar.IsCompleted)
-                //{
-                //    await Task.Delay(16);
-                //}
-
-                //// 非同期処理の結果を返却
-                //return action.EndInvoke(iar);
             });
 
             // 実行ﾊﾟﾗﾒｰﾀに対して処理実行
@@ -70,15 +55,17 @@ namespace ConsoleApp27
 
         private static async Task<bool> Execute(int option, string arg)
         {
+            // 作業用ﾃﾞｨﾚｸﾄﾘﾊﾟｽ
+            var tmp = Path.Combine(Path.GetTempPath(), Path.GetFileName(arg));
+            var zip = tmp + ".zip";
+
             try
             {
-                Util.WriteConsole(arg + ":作業開始");
-
-                // 作業用ﾃﾞｨﾚｸﾄﾘﾊﾟｽ
-                var tmp = Path.Combine(Path.GetTempPath(), Path.GetFileName(arg));
-                var zip = tmp + ".zip";
+                Util.WriteConsole("***** 開始:" + arg);
 
                 Util.DirectoryCreate(tmp);
+
+                Util.WriteConsole("終了(作業用ﾃﾞｨﾚｸﾄﾘ作成):" + arg);
 
                 // 対象ﾌｧｲﾙを作業用ﾃﾞｨﾚｸﾄﾘにｺﾋﾟｰ
                 var copyfiles = GetFiles(arg).Select(async (x, i) =>
@@ -88,31 +75,44 @@ namespace ConsoleApp27
                 });
                 await Task.WhenAll(copyfiles);
 
+                Util.WriteConsole("終了(作業ﾌｧｲﾙｺﾋﾟｰ):" + arg);
+
                 if (Util.IsExecuteShukusen(option))
                 {
                     if (!await Shukusen(tmp))
                     {
-                        Util.WriteConsole(arg + ":Shukusenでｴﾗｰ");
+                        Util.WriteConsole("異常(Shukusen):" + arg);
                         return false;
                     }
+                    Util.WriteConsole("終了(Shukusen):" + arg);
                 }
 
                 // zip圧縮
                 Util.CreateZipFromDirectory(tmp, zip);
 
+                Util.WriteConsole("終了(ZIP):" + arg);
+
                 // 元の場所に移動
                 Util.FileMove(zip, Path.Combine(Path.GetDirectoryName(arg), Path.GetFileName(zip)));
+
+                Util.WriteConsole("終了(移動):" + arg);
 
                 // 作業用ﾃﾞｨﾚｸﾄﾘ削除
                 Util.DirectoryDelete(tmp);
 
-                Util.WriteConsole(arg + ":作業終了");
+                Util.WriteConsole("***** 終了:" + arg);
+
                 return true;
             }
             catch (Exception ex)
             {
                 Util.WriteConsole(arg + ex.ToString());
                 return false;
+            }
+            finally
+            {
+                // 作業用ﾃﾞｨﾚｸﾄﾘ削除
+                Util.DirectoryDelete(tmp);
             }
         }
 
@@ -207,55 +207,45 @@ namespace ConsoleApp27
             // 作業ﾃﾞｨﾚｸﾄﾘを取得
             var work = System.AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
 
-            var shukusen = Util.Chunk(Directory.GetFiles(dir)).Select(async x =>
+            var shukusen = Util.Chunk(Directory.GetFiles(dir)).AsParallel().Select(async x =>
             {
                 var arg = string.Join(" ", x.Select(file => $"\"{file}\""));
 
-                await AppSettings.Semaphore.WaitAsync();
+                if (!await Util.StartProcess(work, AppSettings.Shukusen, arg))
+                {
+                    return false;
+                }
 
-                try
+                x.AsParallel().ForAll(y =>
                 {
-                    Util.StartProcess(work, AppSettings.Shukusen, arg);
-                    return x;
-                }
-                catch (Exception ex)
-                {
-                    Util.WriteConsole(ex.ToString());
-                    return null;
-                }
-                finally
-                {
-                    AppSettings.Semaphore.Release();
-                }
+                    var dst = Path.Combine(
+                        Path.GetDirectoryName(y),
+                        $"s-{Util.GetFileNameWithoutExtension(y)}.jpg"
+                    );
+
+                    var fi = new FileInfo(dst);
+
+                    if (fi.Exists && fi.Length != 0)
+                    {
+                        // 縮小が成功していたら元ﾌｧｲﾙを削除
+                        File.Delete(y);
+                    }
+                    else
+                    {
+                        // 縮小が失敗していて、且つ、縮小後ﾌｧｲﾙが残っていたら後ﾌｧｲﾙを削除
+                        if (fi.Exists) fi.Delete();
+
+                        // 縮小前のﾌｧｲﾙをﾘﾈｰﾑ
+                        File.Move(y, dst);
+                    }
+                });
+
+                return true;
             });
 
             var results = await Task.WhenAll(shukusen);
 
-            results.Where(x => x != null).SelectMany(x => x).AsParallel().ForAll(x =>
-            {
-                var dst = Path.Combine(
-                    Path.GetDirectoryName(x),
-                    $"s-{Util.GetFileNameWithoutExtension(x)}.jpg"
-                );
-
-                var fi = new FileInfo(dst);
-
-                if (fi.Exists && fi.Length != 0)
-                {
-                    // 縮小が成功していたら元ﾌｧｲﾙを削除
-                    File.Delete(x);
-                }
-                else
-                {
-                    // 縮小が失敗していて、且つ、縮小後ﾌｧｲﾙが残っていたら後ﾌｧｲﾙを削除
-                    if (fi.Exists) fi.Delete();
-
-                    // 縮小前のﾌｧｲﾙをﾘﾈｰﾑ
-                    File.Move(x, dst);
-                }
-            });
-
-            return results.All(x => x != null);
+            return results.All(x => x);
         }
     }
 }

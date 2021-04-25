@@ -146,23 +146,41 @@ namespace ConsoleApp27
             }
         }
 
-        public static void StartProcess(string work, string file, string argument)
+        public static async Task<bool> StartProcess(string work, string file, string argument)
         {
-            var info = new ProcessStartInfo();
+            _sema = _sema ?? new SemaphoreSlim(1, AppSettings.Lock);
 
-            info.WorkingDirectory = work;
-            info.FileName = file;
-            info.Arguments = argument;
-            info.UseShellExecute = false;
-            info.CreateNoWindow = true;
-            info.ErrorDialog = true;
-            info.RedirectStandardError = true;
-
-            using (var process = Process.Start(info))
+            try
             {
-                process.WaitForExit();
+                await _sema.WaitAsync();
+
+                var info = new ProcessStartInfo();
+
+                info.WorkingDirectory = work;
+                info.FileName = file;
+                info.Arguments = argument;
+                info.UseShellExecute = false;
+                info.CreateNoWindow = true;
+                info.ErrorDialog = true;
+                info.RedirectStandardError = true;
+
+                using (var process = Process.Start(info))
+                {
+                    process.WaitForExit();
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Util.WriteConsole(ex.ToString());
+                return false;
+            }
+            finally
+            {
+                _sema.Release();
             }
         }
+        public static SemaphoreSlim _sema  = new SemaphoreSlim(1, AppSettings.Lock);
 
         public static void WriteConsole(string message)
         {

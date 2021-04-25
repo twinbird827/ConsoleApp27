@@ -24,8 +24,5 @@ namespace ConsoleApp27
         {
             return value.Split(':');
         }
-
-        public static SemaphoreSlim Semaphore { get; } = new SemaphoreSlim(1, Lock);
-
     }
 }
