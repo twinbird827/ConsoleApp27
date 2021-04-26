@@ -180,7 +180,7 @@ namespace ConsoleApp27
                 _sema.Release();
             }
         }
-        public static SemaphoreSlim _sema  = new SemaphoreSlim(1, AppSettings.Lock);
+        public static SemaphoreSlim _sema  = new SemaphoreSlim(AppSettings.Lock, AppSettings.Lock);
 
         public static void WriteConsole(string message)
         {
