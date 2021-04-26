@@ -21,7 +21,16 @@ namespace ConsoleApp27
             // ｵﾌﾟｼｮﾝを選択
             var option = GetOption(Console.ReadLine());
 
-            Execute(option, args).Wait();
+            var task = Execute(option, args);
+
+            task.Wait();
+
+            if (task.Exception != null)
+            {
+                Util.WriteConsole(task.Exception.ToString());
+                // ｴﾗｰがあったらｺﾝｿｰﾙを表示した状態で終了する。
+                Console.ReadLine();
+            }
         }
 
         private static int GetOption(string line)
@@ -99,6 +108,9 @@ namespace ConsoleApp27
 
                 // 作業用ﾃﾞｨﾚｸﾄﾘ削除
                 Util.DirectoryDelete(tmp);
+
+                // 元のﾃﾞｨﾚｸﾄﾘ削除
+                Util.DirectoryDelete(arg);
 
                 Util.WriteConsole("***** 終了:" + arg);
 

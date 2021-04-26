@@ -74,7 +74,7 @@ namespace ConsoleApp27
         public static async Task FileCopyAsync(string src, string dst)
         {
             const FileOptions fileOptions = FileOptions.Asynchronous | FileOptions.SequentialScan;
-            const int bufferSize = 4096;
+            const int bufferSize = 65536;
 
             var cts = new CancellationTokenSource();
             using (var sStream = new FileStream(GetShortPathName(src), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, fileOptions))
@@ -96,6 +96,8 @@ namespace ConsoleApp27
         public static void DirectoryDelete(string src)
         {
             var info = new DirectoryInfo(GetShortPathName(src));
+
+            if (!info.Exists) return;
 
             foreach (var file in info.GetFileSystemInfos("*", SearchOption.AllDirectories))
             {
@@ -127,7 +129,7 @@ namespace ConsoleApp27
         {
             var target = new List<string>();
 
-            foreach (var file in source)
+            foreach (var file in source.Select(x => GetShortPathName(x)))
             {
                 if (8000 < target.Sum(a => a.Length + 3))
                 {
