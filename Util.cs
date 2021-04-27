@@ -71,19 +71,19 @@ namespace ConsoleApp27
             if (File.Exists(src)) File.Delete(src);
         }
 
-        public static async Task FileCopyAsync(string src, string dst)
+        public static Task FileCopyAsync(string src, string dst)
         {
-            const FileOptions fileOptions = FileOptions.Asynchronous | FileOptions.SequentialScan;
-            const int bufferSize = 65536;
+            //const FileOptions fileOptions = FileOptions.Asynchronous | FileOptions.SequentialScan;
+            //const int bufferSize = 65536;
 
-            var cts = new CancellationTokenSource();
-            using (var sStream = new FileStream(GetShortPathName(src), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, fileOptions))
-            using (var dStream = new FileStream(GetShortPathName(dst), FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize, fileOptions))
-            {
-                await sStream.CopyToAsync(dStream, bufferSize, cts.Token).ConfigureAwait(false);
-            }
+            //var cts = new CancellationTokenSource();
+            //using (var sStream = new FileStream(GetShortPathName(src), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, fileOptions))
+            //using (var dStream = new FileStream(GetShortPathName(dst), FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize, fileOptions))
+            //{
+            //    await sStream.CopyToAsync(dStream, bufferSize, cts.Token).ConfigureAwait(false);
+            //}
 
-            //await WaitAsync(() => File.Copy(GetShortPathName(src), GetShortPathName(dst)));
+            return WaitAsync(() => File.Copy(GetShortPathName(src), GetShortPathName(dst)));
         }
 
         public static void DirectoryCreate(string dir)
@@ -150,7 +150,7 @@ namespace ConsoleApp27
 
         public static async Task<bool> StartProcess(string work, string file, string argument)
         {
-            _sema = _sema ?? new SemaphoreSlim(1, AppSettings.Lock);
+            _sema = _sema ?? new SemaphoreSlim(AppSettings.Lock, AppSettings.Lock);
 
             try
             {
@@ -182,7 +182,7 @@ namespace ConsoleApp27
                 _sema.Release();
             }
         }
-        public static SemaphoreSlim _sema  = new SemaphoreSlim(AppSettings.Lock, AppSettings.Lock);
+        public static SemaphoreSlim _sema;
 
         public static void WriteConsole(string message)
         {
