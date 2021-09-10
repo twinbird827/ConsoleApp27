@@ -161,7 +161,7 @@ namespace ConsoleApp27
             return bases.OrderBy(x =>
             {
                 x = Regex.Replace(x, @"^[a-zA-Z]*cover[a-zA-Z]*", m => "!!!");
-                x = Regex.Replace(x, @"[0-9]+", m => string.Format("{0,0:D5}", int.Parse(m.Value)));
+                x = Regex.Replace(x, @"[0-9]{1,5}", m => string.Format("{0,0:D5}", long.Parse(m.Value)));
                 return x;
             });
         }
